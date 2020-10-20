@@ -1,16 +1,13 @@
-name: windows
+name: release
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    tags:
+      - 'v*'
 
 jobs:
   build:
-
     runs-on: windows-latest
-    # if: "contains(github.event.head_commit.message, '[build]')"
     steps:
     - uses: actions/checkout@v2
     - uses: seanmiddleditch/gha-setup-vsdevenv@master
@@ -32,23 +29,27 @@ jobs:
         copy "%SDKROOT%\usr\share\visualc.modulemap" "%VCToolsInstallDir%\include\module.modulemap"
         copy "%SDKROOT%\usr\share\visualc.apinotes" "%VCToolsInstallDir%\include\visualc.apinotes"
         copy "%SDKROOT%\usr\share\winsdk.modulemap" "%UniversalCRTSdkDir%\Include\%UCRTVersion%\um\module.modulemap"
-
     - name: Build
-      # if: "! contains(github.event.head_commit.message, '[release]')"
-      run: swift build -v
-    # - name: Build With optimization
-      # if: "contains(github.event.head_commit.message, '[release]')"
-      # run: swift build -c release
+      run: swift build -v -c release
 
-    # - name: Upload binaries to release
-    #   if: "contains(github.event.head_commit.message, '[release]')"
-    #   uses: svenstaro/upload-release-action@v2
-    #   with:
-    #     repo_token: ${{ secrets.GITHUB_TOKEN }}
-    #     file: D:\a\swift-devenv\swift-devenv\.build\x86_64-unknown-windows-msvc\debug\swift-devenv.exe
-    #     asset_name: swift-devenv.exe
-    #     tag: ${{ github.ref }}
-    #     overwrite: true
-    #     body: "Release swift-devenv"
-    # - name: Run tests
-    #  run: swift test -v
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+
+    - name: Upload Release Artifacts
+      id: upload_release_artifacts
+      uses: actions/upload-release-asset@1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: swift-devenv
+        asset_content_type: application/octet-stream
+        asset_path: .build\x86_64-unknown-windows-msvc\release\swift-devenv.exe
